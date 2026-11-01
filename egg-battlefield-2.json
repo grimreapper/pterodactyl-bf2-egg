@@ -1,0 +1,302 @@
+{
+  "_comment": "Original-code local candidate. Build the supplied image on the node before import. No game files included.",
+  "meta": {
+    "version": "PTDL_v2",
+    "update_url": null
+  },
+  "exported_at": "2026-11-01T00:00:00+00:00",
+  "name": "Battlefield 2 (2005)",
+  "author": "community@example.invalid",
+  "description": "Native Linux v1.5 amd64, unranked. Exact operator archive and explicit EA/noncommercial acknowledgments required. BF2Hub patched clients required for BF2Hub discovery. Panel import, container runtime, public listing and client join remain unverified.",
+  "features": [],
+  "docker_images": {
+    "BF2 amd64 (build container/Dockerfile locally)": "bf2-native-linux:local"
+  },
+  "file_denylist": [],
+  "startup": "/bin/bash server/egg/start.sh",
+  "config": {
+    "files": "{}",
+    "startup": "{\"done\":[]}",
+    "logs": "{}",
+    "stop": "^C"
+  },
+  "scripts": {
+    "installation": {
+      "script": "#!/bin/bash\nset -euo pipefail\numask 077\nunset LD_PRELOAD LD_LIBRARY_PATH PYTHONPATH PYTHONHOME BASH_ENV ENV\nwork=$(mktemp -d)\ntrap 'rm -rf -- \"$work\"' EXIT\ncat > \"$work/spec.py\" <<'BF2_SOURCE_SPEC_PY'\n\"\"\"Public provenance facts and the single source of panel/runtime defaults.\"\"\"\nARCHIVE = 'bf2-linuxded-1.5.3153.0-installer.tgz'\nARCHIVE_SIZE = 330688322\nARCHIVE_SHA256 = '4d849218c1725e7bd6a7e7f164e27b036248f8ded2e30340dd0722c1dfffbab6'\nINNER = 'bf2-linuxded-1.5.3153.0-installer.sh'\nINNER_SIZE = 330909895\nPAYLOAD_OFFSET = 8893\nMIRROR = 'https://static.nihlen.net/bf2/server/' + ARCHIVE\nHUB_ARCHIVE = 'BF2Hub-Unranked-Linux-R3.tar.gz'\nHUB_URL = 'https://www.bf2hub.com/downloads/' + HUB_ARCHIVE\nHUB_SIZE = 38980\nHUB_SHA256 = 'c4b3d583741c500e930502e96c6a43a40f223868c9ca1111c70d80c7e6d2cd2b'\nBASE_HASHES = {\n    'bin/amd-64/bf2': 'b60c1d055437daaad51603f2ffa7cacab71c6502cdd9c8011887e64ed19e1719',\n    'bin/amd-64/libdice_py.so': '275b6fd2096fa619ffd662227846f48f1acab6cb7f3c7d86e9900a07f6272454',\n    'bin/amd-64/libaidll.so': '5e801d62021950941f4d7b7b72a37f62f7f13f210d404dfb2e211b0077ffcbb8',\n    'start.sh': '829010ee4dc9984d6763dcdc425dd987ba69264c3354cdd9526647977569c6a1',\n    'start_original.sh': '829010ee4dc9984d6763dcdc425dd987ba69264c3354cdd9526647977569c6a1',\n}\nHUB_HASHES = {\n    'BF2Hub-Unranked-Linux-R3.txt': 'f4c47969d2751ad8235453f270591ab7ca9e1daf3dccfb912c4de0b5348586d4',\n    'start_bf2hub.sh': 'd9b9c0b594452ba6a72e08c8f80d1730216c1ede3a4804ac1055e9b113e58799',\n    'bin/amd-64/libbf2hub.so': 'd8e9eff04e45eca70481d3f5d688e75b3728823c95b52a9a03b8f7046941c604',\n    'bin/ia-32/libbf2hub.so': '459e7ee967667efa81480ce514aea3a94cf1d8efd14e041e6d1ccf23482565b3',\n}\n# name: (default, Laravel rules, operator description)\nVARIABLES = {\n    'EA_EULA_ACCEPT': ('NO', 'required|string|in:NO,YES', 'Set exactly YES only after reading and accepting the EA Tools EULA; no automatic acceptance.'),\n    'NONCOMMERCIAL_USE': ('NO', 'required|string|in:NO,YES', 'Set exactly YES to acknowledge personal noncommercial use under the supplied license.'),\n    'ALLOW_THIRD_PARTY_MIRROR': ('0', 'required|integer|in:0,1', '1 = allow the optional community HTTPS mirror after local upload and explicit URL; 0 = no mirror. Not an EA origin.'),\n    'ARCHIVE_URL': ('', 'nullable|string|max:2048', 'Optional operator HTTPS source for the exact pinned archive. Local root upload takes priority. HTTPS redirects only; no embedded credentials.'),\n    'BF2HUB_ENABLED': ('0', 'required|integer|in:0,1', '1 = use verified BF2Hub unranked R3; 0 = original launcher. Set before install. Requires patched clients; public listing/join unverified.'),\n    'SERVER_NAME': ('Battlefield 2 Server', 'required|string|max:64', 'Server display name, 1\u201364 printable ASCII characters; quotes and backslashes are refused.'),\n    'SERVER_PASSWORD': ('', 'nullable|string|max:64', 'Empty = public join; otherwise 12\u201364 printable ASCII characters without quotes/backslashes. Placeholder secrets are refused.'),\n    'INTERNET': ('0', 'required|integer|in:0,1', '1 = Internet reporting; 0 = offline/private. BF2Hub requires 1. Does not configure firewall/NAT.'),\n    'SERVER_BIND_IP': ('0.0.0.0', 'required|ipv4', 'Local IPv4 bind address; 0.0.0.0 listens on container interfaces. Never put an unbound public NAT address here.'),\n    'QUERY_PORT': ('29900', 'required|integer|between:1024,65535', 'GameSpy query/status UDP; separate allocation required for BF2Hub reachability.'),\n    'MAX_PLAYERS': ('32', 'required|integer|between:1,64', 'Player slots, 1\u201364 supported by this candidate. Map size is selected separately in each rotation entry.'),\n    'MIN_PLAYERS': ('1', 'required|integer|between:1,64', 'Players required to start; must not exceed MAX_PLAYERS.'),\n    'ROUNDS_PER_MAP': ('3', 'required|integer|between:1,99', 'Rounds before rotating, candidate policy 1\u201399.'),\n    'TICKET_RATIO': ('100', 'required|integer|between:1,1000', 'Ticket percentage, candidate policy 1\u20131000 percent; higher values lengthen rounds.'),\n    'TIME_LIMIT': ('0', 'required|integer|between:0,1440', 'Round limit in minutes; 0 = no limit, candidate policy up to 1440.'),\n    'BOT_COUNT': ('0', 'required|integer|between:0,64', 'Coop bots, 0\u201364 and no greater than MAX_PLAYERS; positive count requires a gpm_coop rotation.'),\n    'BOT_RATIO': ('50', 'required|integer|between:0,100', 'Coop team bot ratio in percent, 0\u2013100.'),\n    'BOT_DIFFICULTY': ('50', 'required|integer|between:10,100', 'Coop difficulty: 10 = easiest, 100 = hardest; requires cooperative map data.'),\n    'MOD': ('bf2', 'required|string|max:48', 'Lowercase mod directory token: letters/digits/underscores; starts with a letter or digit. xpack/custom content must be supplied separately.'),\n    'MAP_ROTATION': ('strike_at_karkand gpm_cq 32', 'required|string|max:4096', 'Semicolon-separated map mode size triples. Modes gpm_cq/gpm_coop, sizes 16/32/64; every combination must exist in installed metadata and server.zip.'),\n    'RCON_ENABLED': ('0', 'required|integer|in:0,1', '1 = authenticated TCP RCON using default admin module; 0 = no admin module/listener. Restrict source IPs in your firewall.'),\n    'RCON_PORT': ('4711', 'required|integer|between:1024,65535', 'Optional RCON TCP allocation; only used when RCON_ENABLED=1.'),\n    'RCON_PASSWORD': ('', 'nullable|string|max:64', 'Required when RCON is enabled: 16\u201364 ASCII letters/digits or ._!@%+:-; no spaces or equals sign. Placeholder secrets refused.'),\n    'VOIP_ENABLED': ('0', 'required|integer|in:0,1', '1 = integrated VOIP, requiring three extra UDP allocations; 0 = disabled. Listener behavior remains unverified.'),\n    'VOIP_CLIENT_PORT': ('55123', 'required|integer|between:1024,65535', 'Integrated VOIP client UDP port; used only with VOIP_ENABLED=1.'),\n    'VOIP_BF_PORT': ('55124', 'required|integer|between:1024,65535', 'Integrated VOIP BF server UDP port; used only with VOIP_ENABLED=1.'),\n    'VOIP_SERVER_PORT': ('55125', 'required|integer|between:1024,65535', 'Integrated VOIP server UDP port; used only with VOIP_ENABLED=1.'),\n}\nDEFAULTS = {k: v[0] for k, v in VARIABLES.items()}\n# Pterodactyl reserves SERVER_PORT and injects the primary allocation itself, so\n# it must not be declared as an egg variable. The fallback exists only for direct\n# local/container tests outside a panel.\nBUILTIN_DEFAULTS = {'SERVER_PORT': '16567'}\nRUNTIME_IMAGE = 'bf2-native-linux:local'\nINSTALL_IMAGE = 'bf2-native-linux:local'\nBF2_SOURCE_SPEC_PY\ncat > \"$work/common.py\" <<'BF2_SOURCE_COMMON_PY'\n\"\"\"Original shared validation, authenticated I/O, and atomic filesystem helpers.\"\"\"\nimport contextlib\nimport fcntl\nimport hashlib\nimport os\nfrom pathlib import Path, PurePosixPath\nimport re\nimport resource\nimport stat\nimport subprocess\nimport tarfile\nimport tempfile\nfrom urllib.parse import urlsplit\n\nfrom spec import BUILTIN_DEFAULTS, DEFAULTS\n\n\nclass Refusal(ValueError):\n    pass\n\n\ndef require(ok, message):\n    if not ok:\n        raise Refusal(message)\n\n\ndef value(env, key):\n    if key in env:\n        result = env[key]\n    elif key in DEFAULTS:\n        result = DEFAULTS[key]\n    else:\n        result = BUILTIN_DEFAULTS[key]\n    require(isinstance(result, str) and all(32 <= ord(c) < 127 for c in result),\n            key + ': only printable ASCII, no control characters')\n    return result\n\n\ndef switch(env, key):\n    result = value(env, key)\n    require(result in ('0', '1'), key + ': expected 0 or 1')\n    return result == '1'\n\n\ndef acknowledgments(env):\n    for key in ('EA_EULA_ACCEPT', 'NONCOMMERCIAL_USE'):\n        require(value(env, key) == 'YES', key + '=YES is required; read the EULA first')\n\n\ndef regular(path, executable=False):\n    st = path.lstat()\n    require(stat.S_ISREG(st.st_mode) and st.st_nlink == 1 and st.st_size > 0,\n            'Expected nonempty regular file (no links): ' + path.name)\n    if executable:\n        require(st.st_mode & 0o111, 'Missing executable permission: ' + path.name)\n    return st\n\n\ndef digest(path):\n    regular(path)\n    with path.open('rb') as f:\n        return hashlib.file_digest(f, 'sha256').hexdigest() if hasattr(hashlib, 'file_digest') else hash_stream(f)\n\n\ndef hash_stream(f):\n    h = hashlib.sha256()\n    for chunk in iter(lambda: f.read(1024 * 1024), b''):\n        h.update(chunk)\n    return h.hexdigest()\n\n\ndef verify(path, size, sha):\n    require(regular(path).st_size == size, 'Exact byte count mismatch: ' + path.name)\n    require(digest(path) == sha, 'SHA-256 mismatch: ' + path.name)\n\n\ndef snapshot(source, dest, size, sha):\n    \"\"\"Verify the private copy that will actually be consumed, never reopen input.\"\"\"\n    fd = os.open(source, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)\n    with os.fdopen(fd, 'rb') as src:\n        before = os.fstat(src.fileno())\n        require(stat.S_ISREG(before.st_mode) and before.st_nlink == 1 and before.st_size == size,\n                'Uploaded archive must be a regular file with the exact byte count')\n        with dest.open('xb') as out:\n            left = size\n            while left:\n                chunk = src.read(min(left, 1024 * 1024))\n                require(chunk, 'Archive changed during copy')\n                out.write(chunk)\n                left -= len(chunk)\n            require(not src.read(1), 'Archive grew during copy')\n        after = os.fstat(src.fileno())\n        require((before.st_size, before.st_mtime_ns, before.st_ctime_ns) ==\n                (after.st_size, after.st_mtime_ns, after.st_ctime_ns), 'Archive changed during copy')\n    verify(dest, size, sha)\n\n\ndef https_url(url):\n    require(len(url) <= 2048 and all(33 <= ord(c) < 127 for c in url), 'Invalid HTTPS URL')\n    parts = urlsplit(url)\n    require(parts.scheme == 'https' and parts.hostname and not parts.username and\n            not parts.password and not parts.fragment, 'Only HTTPS URLs without credentials/fragments are accepted')\n    return url\n\n\ndef download(url, dest, size, sha, direct_hub=False):\n    https_url(url)\n    # No cookies, netrc, curlrc, proxy credentials, HTTP redirects, or verbose URLs in errors.\n    cmd = ['curl', '--disable', '--fail', '--silent', '--show-error', '--proto', '=https',\n           '--proto-redir', '=https', '--connect-timeout', '30', '--max-time', '900',\n           '--max-filesize', str(size), '--output', str(dest), '--url', url]\n    if not direct_hub:\n        cmd[2:2] = ['--location', '--max-redirs', '5']\n    # Enforce a kernel write cap even with unknown/chunked Content-Length and older curl.\n    def cap_file_size():\n        resource.setrlimit(resource.RLIMIT_FSIZE, (size, size))\n\n    result = subprocess.run(cmd, env={'PATH': '/usr/bin:/bin', 'LANG': 'C'},\n                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=930,\n                            preexec_fn=cap_file_size)\n    require(result.returncode == 0, 'HTTPS download failed; upload the exact archive and reinstall')\n    verify(dest, size, sha)\n\n\ndef relative_name(name):\n    require('\\\\' not in name and not name.startswith('/') and\n            all(32 <= ord(c) < 127 for c in name), 'Unsafe archive path')\n    while name.startswith('./'):\n        name = name[2:]\n    if name in ('', '.'):\n        return ''\n    path = PurePosixPath(name)\n    require(all(p not in ('.', '..', '') for p in name.split('/')) and len(path.parts) <= 16 and\n            len(name) <= 240, 'Unsafe archive path')\n    return str(path)\n\n\ndef inspect_tar(tar, max_bytes=512 * 1024 * 1024, max_files=2048):\n    names = set()\n    total = 0\n    items = []\n    for member in tar:\n        name = relative_name(member.name.rstrip('/'))\n        require(member.isfile() or member.isdir(), 'Archive links and special files are forbidden')\n        require(name.lower() not in names, 'Duplicate/case-colliding archive path')\n        names.add(name.lower())\n        total += member.size\n        require(len(names) <= max_files and 0 <= member.size <= max_bytes and total <= max_bytes,\n                'Archive exceeds extraction budget')\n        items.append((member, name))\n    return items\n\n\ndef extract_tar(path, dest, expected=None):\n    with tarfile.open(path, 'r:gz') as tar:\n        members = inspect_tar(tar)\n        if expected is not None:\n            require({n for m, n in members if m.isfile()} == set(expected), 'Unexpected archive file set')\n        for member, name in members:\n            if not name:\n                continue\n            target = dest / name\n            if member.isdir():\n                target.mkdir(parents=True, exist_ok=True)\n            else:\n                target.parent.mkdir(parents=True, exist_ok=True)\n                with tar.extractfile(member) as src, target.open('xb') as out:\n                    while chunk := src.read(1024 * 1024):\n                        out.write(chunk)\n                target.chmod(0o755 if member.mode & 0o111 else 0o644)\n\n\ndef tree_check(root, lowercase=False):\n    require(root.is_dir() and not root.is_symlink(), 'Expected real directory')\n    count = 0\n    for base, dirs, files in os.walk(root, followlinks=False):\n        for name in dirs + files:\n            count += 1\n            require(count < 100000, 'Tree exceeds entry budget')\n            p = Path(base) / name\n            st = p.lstat()\n            require(stat.S_ISDIR(st.st_mode) or (stat.S_ISREG(st.st_mode) and st.st_nlink == 1),\n                    'Tree contains link or special file')\n            if lowercase and not (p.suffix == '.py' and name in files):\n                require(name == name.lower(), 'Mod loose paths must be lowercase (except Python scripts)')\n\n\ndef atomic_write(path, content, mode=0o600):\n    fd, temp = tempfile.mkstemp(prefix='.write-', dir=path.parent)\n    try:\n        with os.fdopen(fd, 'wb') as f:\n            f.write(content)\n            f.flush()\n            os.fsync(f.fileno())\n        os.chmod(temp, mode)\n        os.replace(temp, path)\n    finally:\n        if os.path.exists(temp):\n            os.unlink(temp)\n\n\n@contextlib.contextmanager\ndef locked(root):\n    require(root.is_dir() and not root.is_symlink(), 'Volume must be a real directory')\n    fd = os.open(root / '.bf2-egg.lock', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o666)\n    try:\n        st = os.fstat(fd)\n        require(stat.S_ISREG(st.st_mode) and st.st_nlink == 1, 'Unsafe lock file')\n        # Install containers run as root while game containers run as the Wings\n        # UID. The lock contains no data and must remain openable by both; the\n        # server-volume directory is the access boundary.\n        if stat.S_IMODE(st.st_mode) != 0o666:\n            os.fchmod(fd, 0o666)\n        try:\n            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)\n        except BlockingIOError as e:\n            raise Refusal('Install/start already active; stop the server first') from e\n        os.set_inheritable(fd, True)  # exec keeps the lock for the lifetime of the game.\n        yield\n    finally:\n        os.close(fd)\nBF2_SOURCE_COMMON_PY\ncat > \"$work/runtime.py\" <<'BF2_SOURCE_RUNTIME_PY'\n\"\"\"Validate the installed server, generate isolated configuration, then exec its launcher.\"\"\"\nimport hashlib\nimport ipaddress\nimport json\nimport os\nfrom pathlib import Path\nimport platform\nimport re\nimport shutil\nimport subprocess\nimport sys\nimport tempfile\nimport xml.etree.ElementTree as ET\nimport zipfile\n\nfrom common import (Refusal, acknowledgments, atomic_write, digest, locked, regular,\n                    relative_name, require, switch, tree_check, value)\nfrom spec import BASE_HASHES, HUB_HASHES\n\n\ndef integer(env, key, low, high):\n    text = value(env, key)\n    require(re.fullmatch(r'0|[1-9][0-9]{0,5}', text), key + ': expected decimal integer')\n    number = int(text)\n    require(low <= number <= high, key + ': outside supported range')\n    return number\n\n\ndef token(text):\n    require(re.fullmatch(r'[a-z0-9][a-z0-9_]{0,47}', text), 'Expected lowercase map/mod token')\n    return text\n\n\ndef quoted(text):\n    # The legacy console's escape grammar is not established. Refuse ambiguous input.\n    require('\"' not in text and '\\\\' not in text and all(32 <= ord(c) < 127 for c in text),\n            'Quotes, backslashes and control characters are not supported')\n    return '\"' + text + '\"'\n\n\ndef secret(text, rcon=False):\n    if not text and not rcon:\n        return text\n    require((16 if rcon else 12) <= len(text) <= 64, 'Secret length outside supported range')\n    folded = re.sub(r'[^a-z0-9]', '', text.lower())\n    require(not any(x in folded for x in ('password', 'changeme', 'changeit', 'replace', 'example',\n                                         'placeholder', 'default', 'secret', 'letmein', 'qwerty',\n                                         'admin', '123456', 'yourrcon')) and len(set(text)) >= 6,\n            'Refusing placeholder/weak secret')\n    quoted(text)\n    if rcon:\n        require(re.fullmatch(r'[A-Za-z0-9._!@%+:\\-]+', text), 'RCON secret contains unsupported characters')\n    return text\n\n\ndef map_support(level):\n    \"\"\"Intersect advertised map types with actual gameplay data, without extracting ZIPs.\"\"\"\n    require(level.is_dir() and not level.is_symlink(), 'Map directory missing or unsafe')\n    info = level / 'info'\n    require(info.is_dir() and not info.is_symlink(), 'Map info directory missing or unsafe')\n    desc = info / (level.name + '.desc')\n    require(regular(desc).st_size <= 256 * 1024, 'Map metadata too large')\n    data = desc.read_bytes()\n    require(b'<!DOCTYPE' not in data.upper() and b'<!ENTITY' not in data.upper(), 'XML entities forbidden')\n    doc = ET.fromstring(data)\n    require(doc.tag == 'map', 'Unexpected map metadata root')\n    declared = set()\n    for mode in doc.findall('./modes/mode'):\n        kind = mode.get('type')\n        if kind not in ('gpm_cq', 'gpm_coop'):\n            continue\n        for size in mode.findall('maptype'):\n            n = size.get('players')\n            if n in ('16', '32', '64'):\n                pair = (kind, int(n))\n                require(pair not in declared, 'Duplicate map metadata combination')\n                declared.add(pair)\n    archive = level / 'server.zip'\n    require(regular(archive).st_size <= 512 * 1024 * 1024, 'Map archive too large')\n    with zipfile.ZipFile(archive) as z:\n        require(len(z.infolist()) <= 50000, 'Map ZIP exceeds entry budget')\n        seen = set()\n        actual = set()\n        for entry in z.infolist():\n            name = relative_name(entry.filename.rstrip('/')).lower()\n            require(name not in seen, 'Duplicate/case-colliding map ZIP entry')\n            seen.add(name)\n            require(not entry.flag_bits & 1 and (entry.external_attr >> 16) & 0o170000 != 0o120000,\n                    'Encrypted entries and links are forbidden in map ZIP')\n            m = re.fullmatch(r'gamemodes/(gpm_cq|gpm_coop)/(16|32|64)/gameplayobjects\\.con', name)\n            if m and entry.file_size > 0:\n                actual.add((m[1], int(m[2])))\n    return declared & actual\n\n\ndef settings(root, env):\n    acknowledgments(env)\n    name = value(env, 'SERVER_NAME')\n    require(1 <= len(name) <= 64, 'SERVER_NAME must have 1\u201364 characters')\n    password = secret(value(env, 'SERVER_PASSWORD'))\n    mod = token(value(env, 'MOD'))\n    mods = root / 'mods'\n    require(mods.is_dir() and not mods.is_symlink(), 'Unsafe mods directory')\n    modroot = mods / mod\n    tree_check(modroot, lowercase=True)\n    require((modroot / 'init.con').is_file(), 'Incomplete mod: init.con missing')\n    players = integer(env, 'MAX_PLAYERS', 1, 64)\n    minimum = integer(env, 'MIN_PLAYERS', 1, 64)\n    bots = integer(env, 'BOT_COUNT', 0, 64)\n    require(minimum <= players and bots <= players, 'Minimum players/bot count exceeds MAX_PLAYERS')\n    internet = switch(env, 'INTERNET')\n    hub = switch(env, 'BF2HUB_ENABLED')\n    require(not hub or internet, 'BF2Hub requires INTERNET=1')\n    rcon = switch(env, 'RCON_ENABLED')\n    rpassword = value(env, 'RCON_PASSWORD')\n    if rcon or rpassword:\n        secret(rpassword, rcon=True)\n    voip = switch(env, 'VOIP_ENABLED')\n    ports = {k: integer(env, k, 1024, 65535) for k in\n             ('SERVER_PORT', 'QUERY_PORT', 'RCON_PORT', 'VOIP_CLIENT_PORT', 'VOIP_BF_PORT', 'VOIP_SERVER_PORT')}\n    active = [ports['SERVER_PORT'], ports['QUERY_PORT']]\n    if rcon:\n        active.append(ports['RCON_PORT'])\n    if voip:\n        active.extend(ports[k] for k in ('VOIP_CLIENT_PORT', 'VOIP_BF_PORT', 'VOIP_SERVER_PORT'))\n    require(len(set(active)) == len(active), 'Active ports must be distinct')\n    bind = str(ipaddress.IPv4Address(value(env, 'SERVER_BIND_IP')))\n    rotation = value(env, 'MAP_ROTATION')\n    require(0 < len(rotation) <= 4096, 'MAP_ROTATION must be nonempty, at most 4096 characters')\n    lines = []\n    modes = set()\n    cache = {}\n    for item in rotation.split(';'):\n        fields = item.split()\n        require(len(fields) == 3, 'Rotation entries must be: map mode size')\n        level, mode, size = fields\n        token(level)\n        require(mode in ('gpm_cq', 'gpm_coop') and size in ('16', '32', '64'), 'Unsupported mode or size')\n        if level not in cache:\n            cache[level] = map_support(modroot / 'levels' / level)\n        require((mode, int(size)) in cache[level], 'Map/mode/size lacks matching metadata and gameplay data')\n        lines.append(f'mapList.append {level} {mode} {size}')\n        modes.add(mode)\n    require(not bots or 'gpm_coop' in modes, 'Bots require at least one gpm_coop map')\n    entries = {\n        'serverName': quoted(name), 'password': quoted(password), 'internet': int(internet),\n        'serverIP': quoted(bind), 'serverPort': ports['SERVER_PORT'], 'gameSpyPort': ports['QUERY_PORT'],\n        'maxPlayers': players, 'numPlayersNeededToStart': minimum,\n        'roundsPerMap': integer(env, 'ROUNDS_PER_MAP', 1, 99),\n        'ticketRatio': integer(env, 'TICKET_RATIO', 1, 1000), 'timeLimit': integer(env, 'TIME_LIMIT', 0, 1440),\n        'coopBotCount': bots, 'coopBotRatio': integer(env, 'BOT_RATIO', 0, 100),\n        'coopBotDifficulty': integer(env, 'BOT_DIFFICULTY', 10, 100),\n        'punkBuster': 0, 'useGlobalRank': 0, 'useGlobalUnlocks': 0, 'allowNATNegotiation': 0,\n        'voipEnabled': int(voip), 'voipServerRemote': 0,\n        'voipBFClientPort': ports['VOIP_CLIENT_PORT'], 'voipBFServerPort': ports['VOIP_BF_PORT'],\n        'voipServerPort': ports['VOIP_SERVER_PORT'], 'adminScript': quoted('default' if rcon else ''),\n    }\n    return {\n        'serversettings.con': ''.join(f'sv.{k} {v}\\n' for k, v in entries.items()).encode(),\n        'maplist.con': ('\\n'.join(lines) + '\\n').encode(),\n        'default.cfg': (f'port={ports[\"RCON_PORT\"]}\\npassword={rpassword if rcon else \"\"}\\n').encode(),\n    }, mod, hub\n\n\ndef verify_install(root, hub=False):\n    require(root.is_dir() and not root.is_symlink(), 'Installed server directory missing/unsafe')\n    for dirname in ('bin', 'bin/amd-64', 'admin', 'readmes', 'python', 'pb'):\n        p = root / dirname\n        require(p.is_dir() and not p.is_symlink(), 'Incomplete or unsafe server directory: ' + dirname)\n    require(not any((root / 'pb').iterdir()) and not (root / 'pb_amd-64').exists() and\n            not (root / 'pb_ia-32').exists(), 'PunkBuster is unsupported and must remain absent')\n    for name, sha in BASE_HASHES.items():\n        p = root / name\n        regular(p, executable=True)\n        require(digest(p) == sha, 'Original server file hash mismatch: ' + name)\n    for name in ('readmes/eula.txt', 'readmes/readme-linux.txt', 'readmes/readmeserver.txt',\n                 'pylib-2.3.4.zip', 'admin/default.py'):\n        regular(root / name)\n    if hub:\n        for name, sha in HUB_HASHES.items():\n            if '/ia-32/' in name:\n                continue\n            regular(root / name, executable=name.endswith(('.sh', '.so')))\n            require(digest(root / name) == sha, 'BF2Hub R3 file hash mismatch: ' + name)\n\n\ndef runtime_preflight(root, hub):\n    require(platform.machine() == 'x86_64', 'This image supports amd64 only; ia32 is not offered')\n    binary = root / 'bin/amd-64/bf2'\n    header = binary.read_bytes()[:20]\n    require(header[:5] == b'\\x7fELF\\x02' and header[5] == 1 and header[18:20] == b'\\x3e\\x00',\n            'Expected native little-endian amd64 ELF')\n    env = {'PATH': '/usr/bin:/bin', 'LANG': 'C', 'LD_LIBRARY_PATH': str(root / 'bin/amd-64')}\n    targets = [binary, root / 'bin/amd-64/libaidll.so', root / 'bin/amd-64/libdice_py.so']\n    if hub:\n        targets.append(root / 'bin/amd-64/libbf2hub.so')\n    output = ''\n    for target in targets:\n        result = subprocess.run(['ldd', str(target)], env=env, capture_output=True, text=True, timeout=20)\n        require(result.returncode == 0 and 'not found' not in result.stdout + result.stderr,\n                'Missing runtime dependency; use the supplied amd64 ncurses5 image')\n        output += result.stdout\n    match = re.search(r'libncurses\\.so\\.5\\s+=>\\s+(\\S+)', output)\n    require(match, 'Genuine libncurses.so.5 is required')\n    actual = Path(match[1]).resolve(strict=True)\n    result = subprocess.run(['readelf', '-d', str(actual)], capture_output=True, text=True, timeout=20)\n    require(result.returncode == 0 and '(SONAME)' in result.stdout and\n            re.search(r'\\(SONAME\\).*\\[libncurses\\.so\\.5\\]', result.stdout),\n            'Wrong ncurses ABI; symlinking ncurses6 to ncurses5 is forbidden')\n\n\ndef publish_config(root, files):\n    \"\"\"One atomic generation switch updates all three files; preserve vendor settings.\"\"\"\n    folder = root / 'egg-config'\n    folder.mkdir(exist_ok=True, mode=0o700)\n    require(not folder.is_symlink(), 'Unsafe generated config directory')\n    current = folder / 'current'\n    admin = root / 'admin/default.cfg'\n    expected = '../egg-config/current/default.cfg'\n    require(not admin.exists() and not admin.is_symlink() or\n            admin.is_symlink() and os.readlink(admin) == expected, 'Operator admin/default.cfg exists; back it up explicitly first')\n    old = None\n    if current.exists() or current.is_symlink():\n        require(current.is_symlink() and re.fullmatch(r'g-[0-9a-f]{64}', os.readlink(current)),\n                'Unexpected generated configuration pointer')\n        old = folder / os.readlink(current)\n        require(old.is_dir() and not old.is_symlink(), 'Unsafe config generation')\n        require(regular(old / 'hashes.json').st_size < 4096, 'Unsafe config manifest')\n        saved = json.loads((old / 'hashes.json').read_text())\n        require(set(saved) == set(files), 'Invalid generated config manifest')\n        require({p.name for p in old.iterdir()} == set(files) | {'hashes.json'},\n                'Previous config generation contains unexpected files; preserve for inspection')\n        for name, sha in saved.items():\n            require(digest(old / name) == sha, 'Generated config was edited; preserve edits before restarting')\n    hashes = {k: hashlib.sha256(v).hexdigest() for k, v in files.items()}\n    gen_name = 'g-' + hashlib.sha256(json.dumps(hashes, sort_keys=True).encode()).hexdigest()\n    target = folder / gen_name\n    if target.exists() or target.is_symlink():\n        require(target.is_dir() and not target.is_symlink(), 'Unsafe config generation')\n        require(regular(target / 'hashes.json').st_size < 4096, 'Unsafe config manifest')\n        require(json.loads((target / 'hashes.json').read_text()) == hashes, 'Config manifest differs')\n        for name, sha in hashes.items():\n            require(digest(target / name) == sha, 'Existing config generation differs')\n    else:\n        with tempfile.TemporaryDirectory(prefix='.config-', dir=folder) as tmp:\n            stage = Path(tmp) / 'generation'\n            stage.mkdir(mode=0o700)\n            for name, content in files.items():\n                atomic_write(stage / name, content)\n            atomic_write(stage / 'hashes.json', json.dumps(hashes, sort_keys=True).encode())\n            os.rename(stage, target)\n    created_admin = False\n    link = folder / '.next'\n    require(not link.exists() and not link.is_symlink(), 'Stale config transaction; inspect .next')\n    try:\n        if not admin.is_symlink():\n            admin.symlink_to(expected)\n            created_admin = True\n        link.symlink_to(gen_name)\n        os.replace(link, current)\n    except BaseException:\n        if created_admin:\n            admin.unlink()\n        if link.is_symlink():\n            link.unlink()\n        raise\n    # Old generations contain passwords. Keep only the active generation, after publication.\n    if old is not None and old != target:\n        shutil.rmtree(old)\n\n\ndef launch(root, env):\n    acknowledgments(env)\n    hub = switch(env, 'BF2HUB_ENABLED')\n    verify_install(root, hub)\n    files, mod, hub = settings(root, env)\n    runtime_preflight(root, hub)\n    publish_config(root, files)\n    launch_env = dict(env)\n    for key in list(launch_env):\n        if key.startswith('LD_') or key in ('BASH_ENV', 'ENV', 'PYTHONPATH', 'PYTHONHOME'):\n            del launch_env[key]\n    launch_env.update(PATH='/usr/bin:/bin', LANG='C', TERM='xterm', HOME=str(root.parent))\n    launcher = './start_bf2hub.sh' if hub else './start_original.sh'\n    argv = [launcher, '+modPath', 'mods/' + mod, '+config', 'egg-config/current/serversettings.con',\n            '+mapList', 'egg-config/current/maplist.con']\n    os.chdir(root)\n    print('BF2 preflight passed; launching original amd64 server. Readiness is unverified.', flush=True)\n    os.execve(launcher, argv, launch_env)\n\n\ndef main():\n    root = Path(__file__).resolve().parent.parent\n    with locked(root.parent):\n        launch(root, os.environ)\n\n\nif __name__ == '__main__':\n    try:\n        main()\n    except (Refusal, OSError, ValueError, ET.ParseError, zipfile.BadZipFile, subprocess.SubprocessError) as e:\n        print('BF2 startup refused: ' + str(e), file=sys.stderr)\n        sys.exit(1)\nBF2_SOURCE_RUNTIME_PY\ncat > \"$work/install.py\" <<'BF2_SOURCE_INSTALL_PY'\n\"\"\"Exact-hash archive installation; never run license.sh or modify a live installation.\"\"\"\nimport os\nfrom pathlib import Path\nimport shutil\nimport subprocess\nimport sys\nimport tarfile\nimport tempfile\nimport xml.etree.ElementTree as ET\nimport zipfile\n\nfrom common import (Refusal, acknowledgments, digest, download, extract_tar, inspect_tar,\n                    locked, regular, require, snapshot, switch, tree_check, value)\nfrom runtime import settings, verify_install\nfrom spec import (ARCHIVE, ARCHIVE_SIZE, ARCHIVE_SHA256, INNER, INNER_SIZE, PAYLOAD_OFFSET,\n                  MIRROR, HUB_ARCHIVE, HUB_URL, HUB_SIZE, HUB_SHA256, HUB_HASHES)\n\n\ndef acquire(root, stage, env, hub=False):\n    name, size, sha = (HUB_ARCHIVE, HUB_SIZE, HUB_SHA256) if hub else (ARCHIVE, ARCHIVE_SIZE, ARCHIVE_SHA256)\n    source = root / name\n    dest = stage / name\n    if source.exists() or source.is_symlink():\n        snapshot(source, dest, size, sha)\n        return dest\n    if hub:\n        download(HUB_URL, dest, size, sha, direct_hub=True)\n    else:\n        url = value(env, 'ARCHIVE_URL')\n        if not url:\n            require(switch(env, 'ALLOW_THIRD_PARTY_MIRROR'),\n                    'Upload ' + ARCHIVE + ' to the volume root, set ARCHIVE_URL, or explicitly enable the third-party mirror')\n            print('Using optional THIRD-PARTY community HTTPS mirror; not an EA origin.', flush=True)\n            url = MIRROR\n        download(url, dest, size, sha)\n    return dest\n\n\ndef unpack(archive, stage):\n    outer = stage / 'outer'\n    outer.mkdir()\n    extract_tar(archive, outer, expected={INNER})\n    script = outer / INNER\n    require(regular(script).st_size == INNER_SIZE, 'Unexpected makeself installer size')\n    # Inspect authenticated embedded tar BEFORE the legacy extractor sees it.\n    with script.open('rb') as f:\n        for _ in range(375):\n            f.readline()\n        require(f.tell() == PAYLOAD_OFFSET, 'Unexpected makeself header boundary')\n        with tarfile.open(fileobj=f, mode='r|gz') as tar:\n            inspect_tar(tar)\n    payload = stage / 'payload'\n    subprocess.run(['/bin/sh', str(script), '--noexec', '--nox11', '--nochown', '--target', str(payload)],\n                   cwd=outer, env={'PATH': '/usr/bin:/bin', 'LANG': 'C', 'TMPDIR': str(stage)},\n                   stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,\n                   timeout=300, check=True)\n    tree_check(payload)\n    return payload\n\n\ndef install(root, env):\n    acknowledgments(env)  # Before any filesystem changes or network calls.\n    hub = switch(env, 'BF2HUB_ENABLED')\n    switch(env, 'ALLOW_THIRD_PARTY_MIRROR')\n    require(not hub or switch(env, 'INTERNET'), 'BF2Hub requires INTERNET=1')\n    with locked(root):\n        destination = root / 'server'\n        if destination.exists() or destination.is_symlink():\n            verify_install(destination, hub)\n            settings(destination, env)\n            print('Existing installation verified; preserved without changes. See reinstall documentation.')\n            return\n        require(shutil.disk_usage(root).free >= 2 * 1024**3, 'At least 2 GiB free staging space is required')\n        with tempfile.TemporaryDirectory(prefix='.bf2-install-', dir=root) as tmp:\n            stage = Path(tmp)\n            archive = acquire(root, stage, env)\n            payload = unpack(archive, stage)\n            for name in ('pb_amd-64', 'pb_ia-32', 'bin/ia-32'):\n                path = payload / name\n                if path.exists():\n                    shutil.rmtree(path)\n            # Keep EULA/readmes; never run or ship an acceptance wrapper as a startup path.\n            (payload / 'license.sh').unlink()\n            (payload / 'pb').mkdir()\n            shutil.copyfile(payload / 'start.sh', payload / 'start_original.sh')\n            (payload / 'start_original.sh').chmod(0o755)\n            if hub:\n                hubarchive = acquire(root, stage, env, hub=True)\n                overlay = stage / 'hub'\n                overlay.mkdir()\n                extract_tar(hubarchive, overlay, expected=HUB_HASHES)\n                for name, sha in HUB_HASHES.items():\n                    require(digest(overlay / name) == sha, 'BF2Hub per-file hash mismatch')\n                    if '/ia-32/' not in name:\n                        target = payload / name\n                        require(not target.exists(), 'BF2Hub overlay would overwrite a file')\n                        shutil.copyfile(overlay / name, target)\n                        target.chmod(0o755 if name.endswith(('.sh', '.so')) else 0o644)\n            code = payload / 'egg'\n            code.mkdir()\n            for name in ('common.py', 'spec.py', 'runtime.py', 'start.sh'):\n                shutil.copyfile(Path(__file__).parent / name, code / name)\n                (code / name).chmod(0o755 if name.endswith('.sh') else 0o644)\n            verify_install(payload, hub)\n            settings(payload, env)  # Validate all operator config before committing anything.\n            require(not destination.exists() and not destination.is_symlink(), 'Destination appeared during installation')\n            os.rename(payload, destination)  # Same filesystem, whole server published atomically.\n        print('BF2 installation complete. EULA/readmes retained in server/readmes. Runtime acceptance still required.')\n\n\nif __name__ == '__main__':\n    try:\n        install(Path(os.environ.get('BF2_ROOT', '/mnt/server')), os.environ)\n    except (Refusal, OSError, ValueError, tarfile.TarError, ET.ParseError, zipfile.BadZipFile, subprocess.SubprocessError) as e:\n        print('BF2 install refused: ' + str(e), file=sys.stderr)\n        sys.exit(1)\nBF2_SOURCE_INSTALL_PY\ncat > \"$work/start.sh\" <<'BF2_SOURCE_START_SH'\n#!/bin/bash\nset -euo pipefail\numask 077\nunset LD_PRELOAD LD_LIBRARY_PATH PYTHONPATH PYTHONHOME BASH_ENV ENV\nexec /usr/bin/python3 -B \"$(dirname -- \"$(readlink -f -- \"$0\")\")/runtime.py\"\nBF2_SOURCE_START_SH\ncat > \"$work/install.sh\" <<'BF2_SOURCE_INSTALL_SH'\n#!/bin/bash\nset -euo pipefail\numask 077\nunset LD_PRELOAD LD_LIBRARY_PATH PYTHONPATH PYTHONHOME BASH_ENV ENV\nexec /usr/bin/python3 -B \"$(dirname -- \"$(readlink -f -- \"$0\")\")/install.py\"\nBF2_SOURCE_INSTALL_SH\n/bin/bash \"$work/install.sh\"\n",
+      "container": "bf2-native-linux:local",
+      "entrypoint": "bash"
+    }
+  },
+  "variables": [
+    {
+      "name": "Ea Eula Accept",
+      "description": "Set exactly YES only after reading and accepting the EA Tools EULA; no automatic acceptance.",
+      "env_variable": "EA_EULA_ACCEPT",
+      "default_value": "NO",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string|in:NO,YES",
+      "field_type": "text"
+    },
+    {
+      "name": "Noncommercial Use",
+      "description": "Set exactly YES to acknowledge personal noncommercial use under the supplied license.",
+      "env_variable": "NONCOMMERCIAL_USE",
+      "default_value": "NO",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string|in:NO,YES",
+      "field_type": "text"
+    },
+    {
+      "name": "Allow Third Party Mirror",
+      "description": "1 = allow the optional community HTTPS mirror after local upload and explicit URL; 0 = no mirror. Not an EA origin.",
+      "env_variable": "ALLOW_THIRD_PARTY_MIRROR",
+      "default_value": "0",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer|in:0,1",
+      "field_type": "text"
+    },
+    {
+      "name": "Archive Url",
+      "description": "Optional operator HTTPS source for the exact pinned archive. Local root upload takes priority. HTTPS redirects only; no embedded credentials.",
+      "env_variable": "ARCHIVE_URL",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string|max:2048",
+      "field_type": "text"
+    },
+    {
+      "name": "Bf2Hub Enabled",
+      "description": "1 = use verified BF2Hub unranked R3; 0 = original launcher. Set before install. Requires patched clients; public listing/join unverified.",
+      "env_variable": "BF2HUB_ENABLED",
+      "default_value": "0",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer|in:0,1",
+      "field_type": "text"
+    },
+    {
+      "name": "Server Name",
+      "description": "Server display name, 1\u201364 printable ASCII characters; quotes and backslashes are refused.",
+      "env_variable": "SERVER_NAME",
+      "default_value": "Battlefield 2 Server",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string|max:64",
+      "field_type": "text"
+    },
+    {
+      "name": "Server Password",
+      "description": "Empty = public join; otherwise 12\u201364 printable ASCII characters without quotes/backslashes. Placeholder secrets are refused.",
+      "env_variable": "SERVER_PASSWORD",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string|max:64",
+      "field_type": "text"
+    },
+    {
+      "name": "Internet",
+      "description": "1 = Internet reporting; 0 = offline/private. BF2Hub requires 1. Does not configure firewall/NAT.",
+      "env_variable": "INTERNET",
+      "default_value": "0",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer|in:0,1",
+      "field_type": "text"
+    },
+    {
+      "name": "Server Bind Ip",
+      "description": "Local IPv4 bind address; 0.0.0.0 listens on container interfaces. Never put an unbound public NAT address here.",
+      "env_variable": "SERVER_BIND_IP",
+      "default_value": "0.0.0.0",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|ipv4",
+      "field_type": "text"
+    },
+    {
+      "name": "Query Port",
+      "description": "GameSpy query/status UDP; separate allocation required for BF2Hub reachability.",
+      "env_variable": "QUERY_PORT",
+      "default_value": "29900",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer|between:1024,65535",
+      "field_type": "text"
+    },
+    {
+      "name": "Max Players",
+      "description": "Player slots, 1\u201364 supported by this candidate. Map size is selected separately in each rotation entry.",
+      "env_variable": "MAX_PLAYERS",
+      "default_value": "32",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer|between:1,64",
+      "field_type": "text"
+    },
+    {
+      "name": "Min Players",
+      "description": "Players required to start; must not exceed MAX_PLAYERS.",
+      "env_variable": "MIN_PLAYERS",
+      "default_value": "1",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer|between:1,64",
+      "field_type": "text"
+    },
+    {
+      "name": "Rounds Per Map",
+      "description": "Rounds before rotating, candidate policy 1\u201399.",
+      "env_variable": "ROUNDS_PER_MAP",
+      "default_value": "3",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer|between:1,99",
+      "field_type": "text"
+    },
+    {
+      "name": "Ticket Ratio",
+      "description": "Ticket percentage, candidate policy 1\u20131000 percent; higher values lengthen rounds.",
+      "env_variable": "TICKET_RATIO",
+      "default_value": "100",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer|between:1,1000",
+      "field_type": "text"
+    },
+    {
+      "name": "Time Limit",
+      "description": "Round limit in minutes; 0 = no limit, candidate policy up to 1440.",
+      "env_variable": "TIME_LIMIT",
+      "default_value": "0",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer|between:0,1440",
+      "field_type": "text"
+    },
+    {
+      "name": "Bot Count",
+      "description": "Coop bots, 0\u201364 and no greater than MAX_PLAYERS; positive count requires a gpm_coop rotation.",
+      "env_variable": "BOT_COUNT",
+      "default_value": "0",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer|between:0,64",
+      "field_type": "text"
+    },
+    {
+      "name": "Bot Ratio",
+      "description": "Coop team bot ratio in percent, 0\u2013100.",
+      "env_variable": "BOT_RATIO",
+      "default_value": "50",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer|between:0,100",
+      "field_type": "text"
+    },
+    {
+      "name": "Bot Difficulty",
+      "description": "Coop difficulty: 10 = easiest, 100 = hardest; requires cooperative map data.",
+      "env_variable": "BOT_DIFFICULTY",
+      "default_value": "50",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer|between:10,100",
+      "field_type": "text"
+    },
+    {
+      "name": "Mod",
+      "description": "Lowercase mod directory token: letters/digits/underscores; starts with a letter or digit. xpack/custom content must be supplied separately.",
+      "env_variable": "MOD",
+      "default_value": "bf2",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string|max:48",
+      "field_type": "text"
+    },
+    {
+      "name": "Map Rotation",
+      "description": "Semicolon-separated map mode size triples. Modes gpm_cq/gpm_coop, sizes 16/32/64; every combination must exist in installed metadata and server.zip.",
+      "env_variable": "MAP_ROTATION",
+      "default_value": "strike_at_karkand gpm_cq 32",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string|max:4096",
+      "field_type": "text"
+    },
+    {
+      "name": "Rcon Enabled",
+      "description": "1 = authenticated TCP RCON using default admin module; 0 = no admin module/listener. Restrict source IPs in your firewall.",
+      "env_variable": "RCON_ENABLED",
+      "default_value": "0",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer|in:0,1",
+      "field_type": "text"
+    },
+    {
+      "name": "Rcon Port",
+      "description": "Optional RCON TCP allocation; only used when RCON_ENABLED=1.",
+      "env_variable": "RCON_PORT",
+      "default_value": "4711",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer|between:1024,65535",
+      "field_type": "text"
+    },
+    {
+      "name": "Rcon Password",
+      "description": "Required when RCON is enabled: 16\u201364 ASCII letters/digits or ._!@%+:-; no spaces or equals sign. Placeholder secrets refused.",
+      "env_variable": "RCON_PASSWORD",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string|max:64",
+      "field_type": "text"
+    },
+    {
+      "name": "Voip Enabled",
+      "description": "1 = integrated VOIP, requiring three extra UDP allocations; 0 = disabled. Listener behavior remains unverified.",
+      "env_variable": "VOIP_ENABLED",
+      "default_value": "0",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer|in:0,1",
+      "field_type": "text"
+    },
+    {
+      "name": "Voip Client Port",
+      "description": "Integrated VOIP client UDP port; used only with VOIP_ENABLED=1.",
+      "env_variable": "VOIP_CLIENT_PORT",
+      "default_value": "55123",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer|between:1024,65535",
+      "field_type": "text"
+    },
+    {
+      "name": "Voip Bf Port",
+      "description": "Integrated VOIP BF server UDP port; used only with VOIP_ENABLED=1.",
+      "env_variable": "VOIP_BF_PORT",
+      "default_value": "55124",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer|between:1024,65535",
+      "field_type": "text"
+    },
+    {
+      "name": "Voip Server Port",
+      "description": "Integrated VOIP server UDP port; used only with VOIP_ENABLED=1.",
+      "env_variable": "VOIP_SERVER_PORT",
+      "default_value": "55125",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer|between:1024,65535",
+      "field_type": "text"
+    }
+  ]
+}

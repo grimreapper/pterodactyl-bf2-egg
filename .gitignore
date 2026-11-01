@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.fixtures/
+.private/
+dist/
+*.tgz
+*.tar
+*.gz
+*.zip
+*.so
+*.exe
+*.dll
+*.cab
+*.log
+.env
+server/

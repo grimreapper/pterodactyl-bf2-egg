@@ -1,0 +1,5 @@
+**
+!container/
+!container/Dockerfile
+!container/entrypoint.sh
+!container/supervise.py
